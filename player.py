@@ -1,15 +1,13 @@
 from tkinter import *
 from collider import Collider
-from pynput import keyboard
 from projectile import Projectile
-from window_shake import Shake
 
 class Player:
 
-    def __init__(self, w, pos_x, pos_y, get_enemies, on_hit, on_hit1):
+    def __init__(self, w, pos_x, pos_y, g_controller):
 
+        self.g_controller = g_controller
         self.health = 100
-        self.get_enemies = get_enemies
         self.w = w
 
         self.img = PhotoImage(file='sprites/player.png')
@@ -22,55 +20,59 @@ class Player:
 
         self.col = Collider('player', self.size[0], self.size[1])
 
-        self.graphic = Frame(width=self.size[0], height=self.size[1])
+        self.graphic = Frame(width=self.size[0], height=self.size[1], bg='black')
         Label(self.graphic, image=self.img, bg='black').pack()
 
-        self.on_hit = on_hit
-        self.on_hit1 = on_hit1
-        self.on_hit(self.health)
-
-        keyboard.Listener(on_press=self.on_press).start()
+        w.bind('<KeyPress>', self.on_press)
 
         self.move()
 
     def move(self):
 
+        if self.is_dead() is True:
+            return
+
         self.col.set_position(self.pos_x, y=self.pos_y)
         self.graphic.place(x=self.pos_x, y=self.pos_y)
-        self.w.after(1, lambda: self.move())
+
 
     def on_press(self, key):
+
+        if self.is_dead() is True:
+            return
+
         try:
             if key.char is 'd':
                 self.pos_x += self.speed
             elif key.char is 'a':
                 self.pos_x -= self.speed
+            elif key.char is ' ':
+                self.shoot()
 
         except AttributeError:
-            if str(key) == 'Key.space':
-                self.shoot()
+            pass
 
     def shoot(self):
         if self.can_fire is True:
             self.can_fire = False
-            Projectile(self.w, self.pos_x + self.size[0] / 2, self.pos_y, -1, self.get_enemies(), 'yellow')
+            Projectile(self.w, self.pos_x + self.size[0] / 2, self.pos_y, -1, self.enemies, 'yellow', self.g_controller)
             self.w.after(self.reload_time, self.reload_weapon)
 
     def reload_weapon(self):
         self.can_fire = True
 
     def damage(self):
-        Shake(self.w, 5, 10)
 
         self.health -= 15
-        self.on_hit(self.health)
+        self.on_player_damage()
 
         if self.health <= 0:
             self.die()
-            self.on_hit1(-5)
             return
         pass
 
     def die(self):
         self.graphic.destroy()
-        del self
+
+    def is_dead(self):
+        return self.health <= 0
